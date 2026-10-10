@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAMS - South America Monitoring System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Inter',sans-serif;background:#0f172a;color:#f8fafc;overflow-x:hidden}
+.data-font{font-family:'JetBrains Mono',monospace}
+#map{height:100%;width:100%;background:#020617;z-index:10}
+.custom-div-icon{background:transparent;border:none}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#1e293b;color:#f1f5f9;border:1px solid #334155}
+.leaflet-popup-content{margin:12px;font-family:'Inter',sans-serif}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:#0f172a}::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+</style>
+</head>
+<body class="h-screen w-screen flex flex-col overflow-hidden">
+
+<header class="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 z-20 shrink-0">
+  <div class="flex items-center gap-3">
+    <span class="text-sky-400 text-2xl animate-pulse">📡</span>
+    <h1 class="text-xl font-bold tracking-wider text-slate-100">SAMS <span class="text-xs font-normal text-slate-400 ml-2 uppercase tracking-widest">Monitoramento 2026</span></h1>
+  </div>
+  <div class="flex items-center gap-6">
+    <div class="text-right">
+      <div class="text-xs text-slate-400">STATUS DO SISTEMA</div>
+      <div id="st" class="text-sm font-semibold text-slate-400 flex items-center justify-end gap-2"><span id="dot" class="h-2 w-2 rounded-full bg-slate-400 block"></span><span id="stx">INICIANDO…</span></div>
+    </div>
+    <div class="text-right hidden sm:block">
+      <div class="text-xs text-slate-400">HORA LOCAL (BRT)</div>
+      <div class="text-sm font-semibold data-font" id="clock">00:00:00</div>
+    </div>
+  </div>
+</header>
+
+<main class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+<aside class="w-full md:w-80 bg-slate-900 border-r border-slate-800 flex flex-col h-[40vh] md:h-full z-20 overflow-y-auto shrink-0 shadow-xl">
+
+  <div class="p-5 border-b border-slate-800">
+    <h2 class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">Forças Armadas dos EUA</h2>
+    <div class="flex flex-col gap-2">
+      <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-slate-800">
+        <input type="checkbox" id="fp" checked class="w-4 h-4 accent-sky-500">
+        <span class="text-sky-400 w-5 text-center">✈</span><span class="text-sm">Aeronaves (USAF / NAVY)</span>
+      </label>
+      <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-slate-800">
+        <input type="checkbox" id="fs" checked class="w-4 h-4 accent-rose-500">
+        <span class="text-rose-500 w-5 text-center">🚢</span><span class="text-sm">Navios (US Navy / Coast Guard)</span>
+      </label>
+      <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-slate-800 border border-yellow-500/20 bg-yellow-500/10 mt-2">
+        <input type="checkbox" id="fm" checked class="w-4 h-4 accent-yellow-500">
+        <span class="text-yellow-500 w-5 text-center">📌</span><span class="text-sm font-semibold text-yellow-200">Alvos fixados (última posição)</span>
+      </label>
+      <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-slate-800 border border-emerald-500/20 bg-emerald-500/10 mt-2">
+        <input type="checkbox" id="fc" class="w-4 h-4 accent-emerald-500">
+        <span class="text-emerald-500 w-5 text-center">🛰</span><span class="text-sm font-semibold text-emerald-200">Aviação Civil & Cargueiros</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="p-5 border-b border-slate-800">
+    <h2 class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">Resumo ao vivo</h2>
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="bg-slate-800/60 rounded p-2"><div id="n1" class="text-lg font-bold text-sky-400 data-font">0</div><div class="text-[10px] text-slate-400">AERONAVES</div></div>
+      <div class="bg-slate-800/60 rounded p-2"><div id="n2" class="text-lg font-bold text-rose-500 data-font">0</div><div class="text-[10px] text-slate-400">NAVIOS</div></div>
+      <div class="bg-slate-800/60 rounded p-2"><div id="n3" class="text-lg font-bold text-emerald-400 data-font">0</div><div class="text-[10px] text-slate-400">CIVIS</div></div>
+    </div>
+  </div>
+
+  <div class="p-5 flex-1">
+    <h2 class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">Atividade detectada</h2>
+    <div id="log" class="space-y-2 text-xs text-slate-300"><div class="text-slate-500">Aguardando dados reais…</div></div>
+  </div>
+
+  <div class="p-5 border-t border-slate-800 space-y-3">
+    <label class="flex items-center gap-3 cursor-pointer text-xs text-purple-300">
+      <input type="checkbox" id="sim" class="w-4 h-4 accent-purple-500"> <span>Modo simulação (dados <b>fictícios</b>, só para demonstração)</span>
+    </label>
+    <button onclick="resetView()" class="w-full bg-slate-800 hover:bg-slate-700 text-sm font-semibold py-2 px-4 rounded text-slate-200 border border-slate-600">
+      <span class="mr-2">⤢</span> Centralizar Visão
+    </button>
+  </div>
+</aside>
+
+<section class="flex-1 relative">
+  <div id="map"></div>
+  <div id="banner" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-purple-900/90 border border-purple-400 px-4 py-1 rounded text-xs font-bold text-purple-100">SIMULAÇÃO • DADOS FICTÍCIOS • NÃO É POSIÇÃO REAL</div>
+  <div class="absolute bottom-6 left-6 z-[1000] bg-slate-900/80 backdrop-blur border border-slate-700 px-3 py-1 rounded text-xs data-font text-slate-300 pointer-events-none">
+    LAT: <span id="mlat">0.000</span> | LNG: <span id="mlng">0.000</span>
+  </div>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+setInterval(()=>$('clock').innerText=new Date().toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo'}),1000);
+
+if(typeof L==='undefined'){$('stx').textContent='MAPA BLOQUEADO NESTE VISUALIZADOR';throw new Error('Leaflet bloqueado')}
+// ===== Mapa =====
+const map=L.map('map',{zoomControl:false,attributionControl:false}).setView([-5,-60],4);
+L.control.zoom({position:'topright'}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16}).addTo(map);
+map.on('mousemove',e=>{$('mlat').innerText=e.latlng.lat.toFixed(3);$('mlng').innerText=e.latlng.lng.toFixed(3)});
+const resetView=()=>map.flyTo([-5,-60],4,{duration:1.5});
+const gM=L.layerGroup().addTo(map),gT=L.layerGroup().addTo(map),gP=L.layerGroup().addTo(map);
+
+// ===== Estado =====
+const OBJ={},M={},TRL={},feed={air:0,ship:0},ST={pins:JSON.parse(localStorage.sams_pins||'{}'),first:true,logs:[]};
+const T={P8:'P-8A Poseidon',K35R:'KC-135 Stratotanker',K35T:'KC-135T',KC10:'KC-10 Extender',C17:'C-17 Globemaster',C130:'C-130 Hercules',C30J:'C-130J',E3TF:'E-3 AWACS',E3CF:'E-3 AWACS',RQ4:'RQ-4 Global Hawk (drone)',Q9:'MQ-9 Reaper (drone)',H60:'Helicóptero H-60',B52:'B-52',B1:'B-1B',E2:'E-2 Hawkeye',C2:'C-2 Greyhound',V22:'V-22 Osprey',P3:'P-3 Orion',C5M:'C-5M Galaxy',GLF5:'Gulfstream',DH8D:'Dash 8'};
+const CARGO=/^(FDX|UPS|GTI|ATN|ABX|LCO|LTG|CLX|PAC|QTR|MPH|SQC)/;
+const savePins=()=>localStorage.sams_pins=JSON.stringify(ST.pins);
+const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<1?'agora':m<60?m+' min atrás':Math.round(m/60)+' h atrás'};
+
+function log(t){ST.logs.unshift(new Date().toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo'})+' • '+t);ST.logs=ST.logs.slice(0,12);
+  $('log').innerHTML=ST.logs.map(l=>`<div class="bg-slate-800/50 border-l-2 border-sky-500 p-2 rounded">${esc(l)}</div>`).join('')}
+function status(){
+  const sim=$('sim').checked,ok=feed.air||feed.ship,c=sim?'text-purple-400':ok?'text-emerald-400':'text-rose-500';
+  $('st').className='text-sm font-semibold flex items-center justify-end gap-2 '+c;
+  $('dot').className='h-2 w-2 rounded-full block '+(ok||sim?'animate-ping ':'')+(sim?'bg-purple-400':ok?'bg-emerald-400':'bg-rose-500');
+  $('stx').textContent=sim?'SIMULAÇÃO':ok?'ONLINE & TRACKING':'SEM DADOS (HOSPEDE NA VERCEL)';
+}
+
+// ===== Marcadores =====
+function ico(o){
+  const c=o.k==='ship'?'#f43f5e':o.k==='civ'?(o.cargo?'#a7f3d0':'#34d399'):'#38bdf8',sz=o.k==='civ'?16:22;
+  const p=o.k==='ship'?'M12 2l4 9v7l-4 3-4-3v-7z':'M12 2l2 8 8 4v2l-8-2v5l3 2v1l-5-1-5 1v-1l3-2v-5l-8 2v-2l8-4z';
+  return L.divIcon({className:'custom-div-icon',iconSize:[24,24],iconAnchor:[12,12],
+   html:`<svg viewBox="0 0 24 24" width="${sz}" height="${sz}" fill="${c}" style="display:block;margin:auto;transform:rotate(${o.trk||0}deg);filter:drop-shadow(0 0 5px ${c})"><path d="${p}"/></svg>`});
+}
+function popup(key){
+  const o=OBJ[key];if(!o)return '';
+  const live=!o.sim&&Date.now()-o.ts<9e4,c=o.k==='civ'?'text-emerald-400':'text-yellow-400';
+  const hd=o.sim?'<span class="text-purple-400">SIMULADO (FICTÍCIO)</span>':live?`<span class="${c}">AO VIVO</span>`:'<span class="text-slate-400">SEM SINAL</span>';
+  const body=o.sim?`<div><span class="text-slate-500 text-xs block">ORIGEM</span>${esc(o.orig)}</div><div><span class="text-slate-500 text-xs block">DESTINO</span>${esc(o.dest)}</div>`
+   :`<div><span class="text-slate-500 text-xs block">ALT / VEL.</span>${o.k==='ship'?'—':(o.alt??'?')+' ft'} • ${Math.round(o.gs||0)} kt</div><div><span class="text-slate-500 text-xs block">ÚLTIMO SINAL</span>${ago(o.ts)}</div>
+     <div class="col-span-2"><span class="text-slate-500 text-xs block">POSIÇÃO</span><span class="data-font">${o.lat.toFixed(3)}, ${o.lon.toFixed(3)}</span></div>`;
+  return `<div class="p-1 min-w-[210px]"><div class="text-xs mb-1 uppercase tracking-wider font-bold"><span class="mr-1">📡</span>${hd}</div>
+   <div class="font-bold text-base text-white mb-1">${esc(o.name)}</div><div class="text-xs text-slate-400 mb-2">${esc(o.sub||'')}</div>
+   <div class="grid grid-cols-2 gap-2 text-sm">${body}</div>
+   ${o.sim?'':`<button onclick="pin('${key}')" class="mt-3 w-full text-xs border border-yellow-500/40 text-yellow-300 rounded py-1">📌 Fixar posição</button>`}</div>`;
+}
+function up(key,o){
+  const p=OBJ[key];
+  if(!p){o.tr=[];OBJ[key]=o}else Object.assign(p,o);
+  const t=OBJ[key].tr;t.push([o.lat,o.lon]);if(t.length>60)t.shift();
+}
+function del(key){M[key]&&gM.removeLayer(M[key]);TRL[key]&&gT.removeLayer(TRL[key]);delete M[key];delete TRL[key];delete OBJ[key]}
+function sync(){
+  const f={mil:$('fp').checked,ship:$('fs').checked,civ:$('fc').checked};
+  for(const key in OBJ){
+    const o=OBJ[key];let m=M[key];
+    if(!m){m=M[key]=L.marker([o.lat,o.lon],{icon:ico(o)}).bindPopup(()=>popup(key));o.ltrk=o.trk}
+    else{m.setLatLng([o.lat,o.lon]);if(Math.abs((o.trk||0)-(o.ltrk||0))>3){m.setIcon(ico(o));o.ltrk=o.trk}}
+    f[o.k]?gM.addLayer(m):gM.removeLayer(m);
+    if(o.k!=='civ'&&o.tr.length>1){const t=TRL[key]||(TRL[key]=L.polyline([],{color:o.k==='ship'?'#f43f5e':'#38bdf8',weight:1.5,opacity:.5}));t.setLatLngs(o.tr);f[o.k]?gT.addLayer(t):gT.removeLayer(t)}
+  }
+  gP.clearLayers();
+  if($('fm').checked)for(const key in ST.pins){
+    const p=ST.pins[key],o=OBJ[key];if(o&&!o.sim){p.la=o.lat;p.lo=o.lon;p.ts=o.ts}
+    L.circleMarker([p.la,p.lo],{radius:11,color:'#eab308',weight:2,fillOpacity:.2})
+     .bindPopup(`<div class="p-1"><div class="text-xs text-yellow-400 font-bold">📌 ${o&&Date.now()-o.ts<9e4?'AO VIVO':'ÚLTIMA POSIÇÃO CONHECIDA'}</div><div class="font-bold text-white">${esc(p.name)}</div><div class="text-xs text-slate-400">${new Date(p.ts).toLocaleString('pt-BR')}</div><button onclick="unpin('${key}')" class="mt-2 text-xs text-rose-400">remover</button></div>`).addTo(gP);
+  }
+  let a=0,s=0,c=0;for(const k in OBJ){const o=OBJ[k];o.k==='mil'?a++:o.k==='ship'?s++:c++}
+  $('n1').textContent=a;$('n2').textContent=s;$('n3').textContent=c;
+}
+function pin(key){const o=OBJ[key];if(!o)return;ST.pins[key]={name:o.name,la:o.lat,lo:o.lon,ts:o.ts};savePins();sync()}
+function unpin(key){delete ST.pins[key];savePins();sync()}
+['fp','fs','fm','fc'].forEach(i=>$(i).addEventListener('change',()=>{sync();if(i==='fc')pollCiv()}));
+
+// ===== Dados reais =====
+async function pollAir(){
+  try{
+    const r=await fetch('/api/air');if(!r.ok)throw 0;const j=await r.json(),seen={};
+    for(const a of j.ac||[]){
+      const hex=a.hex.toLowerCase(),key='a'+hex,isNew=!OBJ[key];seen[key]=1;
+      const name=(a.flight||'').trim()||hex.toUpperCase();
+      up(key,{k:'mil',name,sub:(T[a.t]||a.t||'Aeronave militar EUA')+(a.r?' • '+a.r:''),lat:a.lat,lon:a.lon,trk:a.track||0,alt:a.alt_baro,gs:a.gs,ts:Date.now()});
+      if(isNew&&!ST.first)log(`Nova aeronave EUA: ${name} (${T[a.t]||a.t||'?'})`);
+    }
+    if(ST.first)log(`${Object.keys(seen).length} aeronave(s) militar(es) EUA na região`);
+    for(const k in OBJ)if(k[0]==='a'&&!seen[k]&&Date.now()-OBJ[k].ts>6e5)del(k);
+    ST.first=false;feed.air=1;
+  }catch(e){feed.air=0}
+  status();sync();
+}
+async function pollShips(){
+  try{
+    const r=await fetch('/api/ais');if(!r.ok)throw 0;const j=await r.json();
+    for(const m of j.ships||[]){
+      const key='s'+m.id,isNew=!OBJ[key];
+      up(key,{k:'ship',name:m.name||('MMSI '+m.id),sub:/^USCGC/.test(m.name)?'US Coast Guard':/^(USS|USNS)/.test(m.name)?'US Navy':'Navio militar (AIS tipo 35)',lat:m.lat,lon:m.lon,gs:m.sog,trk:m.cog,ts:Date.now()});
+      if(isNew)log(`Navio detectado: ${m.name||m.id}`);
+    }
+    feed.ship=1;
+  }catch(e){if(feed.ship!==0){log('AIS indisponível (confira AISSTREAM_KEY na Vercel)')}feed.ship=0}
+  status();sync();
+}
+async function pollCiv(){
+  for(const k in OBJ)if(OBJ[k].k==='civ'&&!OBJ[k].sim)OBJ[k]._old=1;
+  if(!$('fc').checked||map.getZoom()<5){for(const k in OBJ)if(OBJ[k]._old)del(k);return sync()}
+  try{
+    const c=map.getCenter(),r=await fetch(`/api/civ?lat=${c.lat}&lon=${c.lng}`);if(!r.ok)throw 0;const j=await r.json();
+    for(const a of j.ac||[]){
+      const name=(a.flight||'').trim()||a.hex.toUpperCase(),cargo=CARGO.test(name);
+      up('c'+a.hex,{k:'civ',cargo,name,sub:(cargo?'Carga • ':'Civil • ')+(a.t||''),lat:a.lat,lon:a.lon,trk:a.track||0,alt:a.alt_baro,gs:a.gs,ts:Date.now(),_old:0});
+    }
+  }catch(e){}
+  for(const k in OBJ)if(OBJ[k]._old)del(k);
+  sync();
+}
+
+// ===== Modo simulação (FICTÍCIO) =====
+const R={a:[[38.8,-76.9],[20,-70],[0,-55],[-15.9,-47.9]],b:[[25.8,-80.3],[15,-77],[4.7,-74.1]],c:[[29.4,-98.5],[10,-80],[-10,-75],[-33.4,-70.7]],d:[[27.8,-82.5],[10,-65],[-10,-45],[-22.8,-43.3]],e:[[24.6,-81.8],[10,-70],[-5,-65],[-15,-60]],f:[[36.9,-76.3],[15,-65],[-1,-40],[-22.9,-43.1]],g:[[32.7,-117.2],[15,-100],[-10,-85],[-33,-71.6]],h:[[24.6,-81.8],[15,-65],[5,-50],[0,-51.1]],i:[[30.4,-81.4],[18,-68],[10,-55],[6.8,-58.1]],j:[[25.8,-80.3],[15,-70],[0,-55],[-23.4,-46.5]],l:[[40.6,-73.8],[20,-65],[0,-45],[-34.8,-58.5]],m:[[25.8,-80.3],[10,-75],[-5,-60],[-23,-47.1]],n:[[9.3,-79.9],[5,-75],[-5,-40],[-24,-46.3]]};
+const SIM=[
+['USAF C-17 Globemaster','mil','Andrews AFB','Brasília (BSB)','a',.007,1,.5],['US Navy P-8 Poseidon','mil','Miami','Bogotá (BOG)','b',.005,0,.7],
+['USAF C-130 Hercules','mil','Lackland AFB','Santiago (SCL)','c',.006,2,.2],['US Navy P-8 Poseidon','mil','MacDill AFB','Galeão (GIG)','d',.006,1,.4],
+['USAF RQ-4 Global Hawk','mil','Key West','Patrulha Amazônia','e',.003,2,.6],['USS Nimitz (CVN-68)','ship','Norfolk','Rio de Janeiro','f',.0015,1,.8],
+['USS Gridley (DDG-101)','ship','San Diego','Valparaíso','g',.0008,1,.4],['USCGC Stone (WMSL-758)','ship','Key West','Foz do Amazonas','h',.0007,2,.8],
+['USS Farragut (DDG-99)','ship','Mayport','Georgetown','i',.001,1,.3],['American Airlines AA995','civ','Miami','Guarulhos','j',.008,1,.2],
+['Delta DL101','civ','New York','Ezeiza','l',.009,2,.1],['Atlas Air 5Y8021','civ','Miami','Viracopos','m',.007,1,.5],['Maersk (carga)','ship','Panamá','Santos','n',.0005,1,.6]
+].map(a=>({name:a[0],k:a[1],orig:a[2],dest:a[3],route:R[a[4]],sp:a[5],seg:a[6],pr:a[7]}));
+function simStep(){
+  if(!$('sim').checked)return;
+  SIM.forEach((e,i)=>{
+    if(e.seg>=e.route.length-1)return;
+    e.pr+=e.sp;if(e.pr>=1){e.seg++;e.pr=0;if(e.seg>=e.route.length-1)return}
+    const a=e.route[e.seg],b=e.route[e.seg+1];
+    up('S'+i,{k:e.k,name:e.name,sub:'Simulado',sim:1,orig:e.orig,dest:e.dest,lat:a[0]+(b[0]-a[0])*e.pr,lon:a[1]+(b[1]-a[1])*e.pr,
+      trk:Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI,ts:Date.now()});
+  });
+  sync();
+}
+$('sim').addEventListener('change',()=>{
+  const on=$('sim').checked;$('banner').classList.toggle('hidden',!on);
+  if(!on){for(const k in OBJ)if(OBJ[k].sim)del(k);SIM.forEach(e=>{e.seg=1;e.pr=.3})}
+  status();sync();
+});
+setInterval(simStep,200);
+
+// ===== Loop =====
+pollAir();setInterval(pollAir,20000);pollShips();setInterval(pollShips,30000);setInterval(pollCiv,25000);
+map.on('moveend',()=>{if($('fc').checked)pollCiv()});status();
+</script>
+</body>
+</html>
